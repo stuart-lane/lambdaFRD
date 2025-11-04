@@ -14,7 +14,7 @@ devtools::install_github("stuart-lane/lambda_class", subdir="R")
 ### Python
 Install the python development version from GitHub:
 ```python
-pip install git+https://github.com/stuart-lanelambda_class.git#subdirectory=Python
+pip install git+https://github.com/stuart-lane/lambda_class.git#subdirectory=Python
 ```
 Alternatively, simply download the functions, save them in to the appropriate directory and directly work with the functions themselves.
 
