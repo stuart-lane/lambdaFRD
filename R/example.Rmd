@@ -1,0 +1,182 @@
+LAMBDA CLASS ESTIMATORS - EXAMPLE USAGE
+===========================
+Stuart Lane
+
+University of Bristol
+
+04-11-2025
+
+### Introduction
+
+This document shows an example usage of the `lambda_class` function to replicate
+the empirical results of Lane (2025). I will be looking at class size effects on
+test scores using the Angrist and Lavy (1999) dataset. This looks at verb and math
+scores for 4th and 5th grade students in Israel, where class sizes are determined
+using Maimonides rule. However, as the rule is applied imperfectly, treatment 
+assignment is fuzzy.
+
+### LOAD REQUIRED PACKAGES
+
+``` {r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("dplyr", "haven", "rdrobust")
+
+for (package in packages) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+  library(package, character.only = TRUE)
+}
+```
+
+``` {r echo=FALSE}
+## Set working directory -------------------------------------------------------
+setwd("C:/Users/sl14120/OneDrive - University of Bristol/PostDoc/LocalFullerFRD/GITHUB")
+```
+
+and the new `lambda_class` function. (A full package is in development, but as an intermediate step, the easiest temporary usage of the function is probably to download the `lambda_class_function.R` file and save in the appropriate directory).
+
+``` {r echo=TRUE}
+# New function for FRD estimation
+source("./lambda_class_function.R")
+
+# or download the function directly from Github and save in directory
+# devtools::install_github("stuart_lane/lambda_class", subdir="R")
+```
+
+### LOAD THE DATA
+
+```{r echo=TRUE}
+data <- read_dta("./application/final4.dta")
+```
+
+### DATA FILTERING
+
+For simplicity, I focus on verb test scores, select a bandwidth of 6, and use the first cutoff of 40.
+
+``` {r echo=TRUE, include=TRUE}
+# Select parameters
+cutoff = 40
+bandwidth = 6
+test = "verb"
+
+# Filter data based on parameter choices
+filtered_data <- data %>% 
+  filter(abs(cohsize - cutoff) < bandwidth)
+
+Y <- scale(filtered_data[[paste0("avg", test)]])[,1]    # Outcome vector
+D <- as.numeric(filtered_data$classize)  # Treatment vector
+X <- as.numeric(filtered_data$cohsize)   # Running variable vector
+W <- as.numeric(filtered_data$tipuach)   # Cutoff
+Z <- as.numeric(X >= cutoff)             # Instrument
+n <- nrow(filtered_data)                 # Number of observations in effective sample
+```
+
+### Compute lambda class estimator
+
+``` {r echo=TRUE, inlude=TRUE}
+lambda_estimate <- lambda_class(
+  Y = Y,                     # Outcome vector
+  D = D,                     # Treatment vector
+  X = X,                     # Running variable vector
+  x0 = cutoff,               # Cutoff
+  exog = W,                  # Exogenous control variables
+  bandwidth = bandwidth,     # Bandwidth
+  Lambda = TRUE,             # Use the Lambda function
+  psi = 4,                   # Best choice of psi
+  tau_0 = 0,                 # Null value for hypothesis tests
+  p = 1,                     # Order of local polynomial regression
+  kernel = "uniform",        # Kernel function 
+  robust = TRUE,             # Use robust standard errors
+  alpha = 0.05               # Use 95% confidence intervals
+)
+
+# Extract point estimate and confidence interval
+lambda_coeff <- lambda_estimate$tau_lambda
+lambda_CI_lower <- lambda_estimate$ci_lower_robust
+lambda_CI_upper <- lambda_estimate$ci_upper_robust
+```
+
+Then, the information can be nicely displayed with
+
+``` {r include=TRUE}
+cat("lambda est:", round(lambda_coeff, 2), "[", round(lambda_CI_lower, 2),
+    ",",round(lambda_CI_upper, 2), "]")
+```
+
+``` {r echo=FALSE, inlude=FALSE}
+lambda_1_estimate <- lambda_class(
+  Y = Y,                     # Outcome vector
+  D = D,                     # Treatment vector
+  X = X,                     # Running variable vector
+  x0 = cutoff,               # Cutoff
+  exog = W,                  # Exogenous control variables
+  bandwidth = bandwidth,     # Bandwidth
+  Lambda = TRUE,             # Use the Lambda function
+  psi = 1,                   # Best choice of psi
+  tau_0 = 0,                 # Null value for hypothesis tests
+  p = 1,                     # Order of local polynomial regression
+  kernel = "uniform",        # Kernel function 
+  robust = TRUE,             # Use robust standard errors
+  alpha = 0.05               # Use 95% confidence intervals
+)
+
+# Extract point estimate and confidence interval
+lambda_1_coeff <- lambda_1_estimate$tau_lambda
+lambda_1_CI_lower <- lambda_1_estimate$ci_lower_robust
+lambda_1_CI_upper <- lambda_1_estimate$ci_upper_robust
+```
+
+Repeating the above but with psi = 1 instead of psi = 4 yields a different estimator. The result from this estimation is
+``` {r echo=FALSE}
+cat("lambda est (psi=4):", round(lambda_coeff, 2), "[", round(lambda_CI_lower, 2),
+    ",",round(lambda_CI_upper, 2), "]")
+cat("lambda est (psi=1):", round(lambda_1_coeff, 2), "[", round(lambda_1_CI_lower, 2),
+    ",",round(lambda_1_CI_upper, 2), "]")
+```
+
+### Replicating the standard FRD estimator:
+
+``` {r echo=TRUE, inlude=TRUE}
+FRD_estimate <- lambda_class(
+  Y = Y,                     # Outcome vector
+  D = D,                     # Treatment vector
+  X = X,                     # Running variable vector
+  x0 = cutoff,               # Cutoff
+  exog = W,                  # Exogenous control variables
+  bandwidth = bandwidth,     # Bandwidth
+  Lambda = FALSE,            # ignore the Lambda function
+  lambda = 1,                # lambda = 1 gives the FRD standard estimator
+  tau_0 = 0,                 # Null value for hypothesis tests
+  p = 1,                     # Order of local polynomial regression
+  kernel = "triangular",     # Kernel function 
+  robust = TRUE,             # Use robust standard errors
+  alpha = 0.05               # Use 95% confidence intervals
+)
+
+# Extract point estimate and confidence interval
+FRD_coeff <- FRD_estimate$tau_lambda
+FRD_CI_lower <- FRD_estimate$ci_lower_robust
+FRD_CI_upper <- FRD_estimate$ci_upper_robust
+```
+
+Then, the comparison of the two estimators is information can be nicely displayed with
+
+``` {r echo=FALSE}
+cat("Test:", test, "| bandwidth:", bandwidth, "| cutoff:", cutoff, "| n:", n)
+cat("lambda est (psi=4):", round(lambda_coeff, 2), "[", round(lambda_CI_lower, 2),
+    ",",round(lambda_CI_upper, 2), "]")
+cat("lambda est (psi=1):", round(lambda_1_coeff, 2), "[", round(lambda_1_CI_lower, 2),
+    ",",round(lambda_1_CI_upper, 2), "]")
+cat("FRD est           :", round(FRD_coeff, 2), "[", round(FRD_CI_lower, 2),
+    ",",round(FRD_CI_upper, 2), "]")
+```
+
+In this example, the sample size is small (149 observations). While the point estimates are reasonably similar, the confidence interval for the new estimator is much tighter than for the standard FRD estimator. The simulation and theoretical evidence in Lane (2025) suggests that the new estimator performs substantially better than the standard FRD estimator, with a significantly lower median bias and median absolute deviation, when the sample size is small or when the discontinuity in the probability of treatment at the cutoff is small, and still provides tangible improvements in situations considered strong identification (larger sample or a larger discontinuity). It is also unsurprising that psi = 4 gives tighter confidence intervals than psi = 1.
+
+### References
+
+Angrist, J. D. and Lavy, V. (1999). Using Maimonides’ rule to estimate the effect of class size
+on scholastic achievement. The Quarterly Journal of Economics, 114(2):533–575.
+
+Lane (2025). The moment is here: a generalised class of estimators for fuzzy regression 
+discontinuity designs. Working paper.

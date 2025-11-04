@@ -1,0 +1,62 @@
+LAMBDA-CLASS FRD ESTIMATOR - QUICK REFERENCE FOR R
+==================================================
+
+BASIC CALL:
+  result <- lambda_class(Y, D, X, x0, bandwidth, psi = 4, tau0 = 0)
+
+PARAMETERS:
+  Y         : Outcome (required)
+  D         : Treatment (required)  
+  X         : Running variable (required)
+  x0        : Cutoff (default = 0)
+  exog      : Included exogenous covariates (optional)
+  bandwidth : Bandwidth (required)
+  Lambda    : Use Lambda() function (default = TRUE, recommended)
+  psi       : Tuning parameter (recommend = 4)
+  lambda    : Custom value of lambda (not recommended in general)
+  tau_0     : Null value for hypothesis testing (optional, default 0)
+  p         : Polynomial order (default = 1)
+  kernel    : "uniform" (default), "triangular", or "epanechnikov"
+  robust    : Use robust standard errors (default = FALSE)
+  alpha     : Significance level
+
+RETURNS:
+  result$tau_lambda      : Point estimate of treatment effect using lambda-class
+  result$tau_Y_lambda    : Numerator of lambda-class estimator
+  result$tau_D_lambda    : Denominator of lambda-class estimator
+  result$coefficients    : Full coefficient vector including controls
+  result$t_stat          : T statistic (homoskedastic)
+  result$var_est         : Variance estimator (homoskedastic)
+  result$std_error       : Standard error (homoskedastic)
+  result$ci_lower        : CI lower bound
+  result$ci_upper        : CI upper bound
+  result$reject_t        : Decision on t statistic
+  result$var_robust      : Variance estimator (robust)
+  result$std_robust      : Standard error (robust)
+  result$t_robust        : T statistic (robust)
+  result$std_error       : Standard error
+  result$ci_lower_robust : Robust CI lower bound
+  result$ci_upper_robust : Robust CI upper bound
+  result$df              : Degrees of freedom  
+  result$M               : Effective sample size
+
+RECOMMENDED SETTINGS:
+  ✓ Lambda = TRUE & psi = 4 (best performance)
+  ✓ p = 1 (local linear)
+  ✓ kernel = "uniform" (default)
+  ✓ Use robust = TRUE if heteroskedasticity suspected
+
+EXAMPLE:
+  result <- lambda_class(
+              Y = outcomes, 
+              D = treatment, 
+              X = score, 
+              x0 = 10, 
+              bandwidth = 5, 
+              psi = 4,
+              tau_0 = 0,
+              robust = TRUE,
+              alpha = 0.05
+            )
+  sprintf("Effect: %.2f [%.2f, %.2f]", 
+          result$tau_est, result$ci_lower, result$ci_upper)
