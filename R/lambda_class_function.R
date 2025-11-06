@@ -19,7 +19,7 @@
 #'   root mean squared error, and coverage of confidence intervals. psi = 1 for conservative choice.
 #'   psi = 0 gives the standard FRD estimator, which does not have finite sample moments. 
 #'   (default = 4)
-#' @param lambda Manual specification of lambda in [0,1). Ignored if Lambda = TRUE.
+#' @param lambda Manual specification of lambda in [0,1]. Ignored if Lambda = TRUE.
 #'   lambda = 1 gives standard FRD estimator (not recommended) In general, this parameter
 #'   should be ignored, and the (Lambda = TRUE, psi = 4) combination should be used instead.
 #' @param tau_0 Null hypothesis value for testing (default = 0)

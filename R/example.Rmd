@@ -179,4 +179,4 @@ Angrist, J. D. and Lavy, V. (1999). Using Maimonides’ rule to estimate the eff
 on scholastic achievement. The Quarterly Journal of Economics, 114(2):533–575.
 
 Lane (2025). The moment is here: a generalised class of estimators for fuzzy regression 
-discontinuity designs. Working paper.
+discontinuity designs. https://arxiv.org/abs/2511.03424 
