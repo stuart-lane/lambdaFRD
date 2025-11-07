@@ -3,9 +3,9 @@ The `lambda_class` functions provide facilities for lambda class estimation and 
 
 Lane (2025). The moment is here: a generalised class of estimators for fuzzy regression discontinuity designs. Working paper. https://arxiv.org/abs/2511.03424
 
-Quick reference guides are given for both R and python within the respective folders, to allow for immediate easy use. More detailed documentation is also given.
-
 ## Installation and use
+
+**Quick reference guides** are given for both R and python within the respective folders, to allow for immediate easy use. More detailed documentation is also given.
 
 ### R
 Install the R development version from GitHub:
