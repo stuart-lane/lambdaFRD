@@ -15,6 +15,7 @@ for (package in packages) {
 ### USER CONFIGURATION/CUSTOMISATION
 ### ============================================================================
 
+
 ## Set working directory -------------------------------------------------------
 setwd("~")
 readRenviron(".Renviron")
@@ -30,19 +31,26 @@ PRINT_OUTPUT = TRUE
 DECIMAL_PLACES = 2
 WIDTH = DECIMAL_PLACES + 4
 
+
 ### ============================================================================
 ### ANALYSIS CONFIGURATION
 ### ============================================================================
 
+
 ## Load dataset and functions --------------------------------------------------
-data <- read_dta("final4.dta")
-source("../lambda_class_function.R")
+data <- read_dta("./final4.dta")
+source("../lambdaFRD.R")
 source("./application_utils.R")
 
 ## Parameter configurations ----------------------------------------------------
 tests <- c("verb", "math")
 cutoffs <- c(40, 80, 120)
 bandwidths <- c(6, 8, 10, 12, 14, 16, 18)
+
+# Bias-aware Anderson-Rubin test grid parameters
+AR_LOWER <- -5
+AR_UPPER <- 5
+GRID_POINTS <- 250
 
 ## Results dataframe initialisation --------------------------------------------
 total_combinations <- length(tests) * length(cutoffs) * length(bandwidths)
@@ -73,9 +81,13 @@ df_results <- data.frame(
 
 df_idx <- 1
 
+tau_grid <- seq(AR_LOWER, AR_UPPER, length.out = GRID_POINTS)
+
+
 ### ============================================================================
 ### MAIN ANALYSIS LOOP
 ### ============================================================================
+
 
 for (test in tests) {
   
@@ -135,11 +147,12 @@ for (test in tests) {
       ## STANDARD 2SLS ESTIMATOR
       ## =======================================================================
       
-      iv_estimate <- lambda_class(
+      iv_estimate <- lambdaFRD(
         Y = Y, D = D, X = X, x0 = cutoff, exog = W, bandwidth = bandwidth,
         Lambda = TRUE, psi = 0, lambda = NULL, tau_0 = 0, p = 1,
         kernel = "uniform", robust = TRUE, alpha = 0.05
       )
+      
       iv_coeff <- iv_estimate$tau_lambda
       iv_CI_lower <- iv_estimate$ci_lower_robust
       iv_CI_upper <- iv_estimate$ci_upper_robust
@@ -148,7 +161,7 @@ for (test in tests) {
       ## LAMBDA CLASS ESTIMATOR WITH λ = Λ(1)
       ## =======================================================================
       
-      lambda_1_estimate <- lambda_class(
+      lambda_1_estimate <- lambdaFRD(
         Y = Y, D = D, X = X, x0 = cutoff, exog = W, bandwidth = bandwidth,
         Lambda = TRUE, psi = 1, lambda = NULL, tau_0 = 0, p = 1,
         kernel = "uniform", robust = TRUE, alpha = 0.05
@@ -162,7 +175,7 @@ for (test in tests) {
       ## LAMBDA CLASS ESTIMATOR WITH λ = Λ(4)
       ## =======================================================================
       
-      lambda_4_estimate <- lambda_class(
+      lambda_4_estimate <- lambdaFRD(
         Y = Y, D = D, X = X, x0 = cutoff, exog = W, bandwidth = bandwidth,
         Lambda = TRUE, psi = 4, lambda = NULL, tau_0 = 0, p = 1,
         kernel = "uniform", robust = TRUE, alpha = 0.05
@@ -207,23 +220,65 @@ for (test in tests) {
       
       df <- data.frame(Y = d$Y, D = d$D, X = d$X)
       
-      if (!is.na(M_rot2[1])) {
-        AR_ROT2 <- suppressMessages(try({
-          RDHonest(Y ~ X, 
-                   data = df, 
-                   M = M_rot2[1],
-                   cutoff = cutoff,
-                   kern = "triangular", 
-                   sclass = "H",
-                   h = bandwidth,
-                   opt.criterion = "FLCI")
+      # Create grid of values for AR test
+      accepted_AR2 <- logical(length(tau_grid))
+      
+      # Loop over grid
+      for (j in seq_along(tau_grid)) {
+        tau0 <- tau_grid[j]
+        
+        df_transformed <- data.frame(
+          Y = d$Y - tau0 * d$D,
+          X = d$X
+        )
+        
+        AR2 <- suppressMessages(try({
+          RDHonest(
+            Y ~ X,
+            data = df_transformed,
+            M = M_rot2[1],
+            cutoff = cutoff,
+            kern = "triangular",
+            h = bandwidth,
+            sclass = "H",
+            opt.criterion = "FLCI"
+          )
         }, silent = TRUE))
         
-        if (!inherits(AR_ROT2, "try-error") 
-            && is.list(AR_ROT2) 
-            && !is.null(AR_ROT2$coef)) {
-          AR_2_CI_lower <- AR_ROT2$coef$conf.low
-          AR_2_CI_upper <- AR_ROT2$coef$conf.high
+        if (!inherits(AR2, "try-error")) {
+          accepted_AR2[j] <- (0 >= AR2$coef$conf.low) &
+            (0 <= AR2$coef$conf.high)
+        } else {
+          accepted_AR2[j] <- FALSE
+        }
+      }
+      
+      # Assess shape of the AR confidence interval
+      if (!any(accepted_AR2)) {
+        # Checks for empty
+        AR2_CI_type  <- "empty"
+        AR2_CI_lower <- NA
+        AR2_CI_upper <- NA
+      } else {
+        # Checks for union of disconnected intervals
+        idx_true <- which(accepted_AR2)
+        gaps     <- diff(idx_true)
+        if (any(gaps > 1)) {
+          AR2_CI_type  <- "disconnected"
+          AR2_CI_lower <- max(tau_grid[idx_true[idx_true < mean(idx_true)]])
+          AR2_CI_upper <- min(tau_grid[idx_true[idx_true > mean(idx_true)]])
+        } else {
+          # Checks for unbounded
+          if (min(tau_grid[idx_true]) == AR_LOWER && max(tau_grid[idx_true]) == AR_UPPER) {
+            AR2_CI_type <- "unbounded"
+            AR2_CI_lower <- -Inf
+            AR2_CI_upper <- Inf
+          } else {
+            # Standard closed interval
+            AR2_CI_type  <- "bounded"
+            AR2_CI_lower <- min(tau_grid[idx_true])
+            AR2_CI_upper <- max(tau_grid[idx_true]) 
+          }
         }
       }
       
@@ -288,13 +343,9 @@ for (test in tests) {
         cat("Lambda 4:     ", fmt_align(lambda_4_coeff, DECIMAL_PLACES, WIDTH), "  [",
             fmt_align(lambda_4_CI_lower, DECIMAL_PLACES, WIDTH), ",",
             fmt_align(lambda_4_CI_upper, DECIMAL_PLACES, WIDTH), "]\n")
-        if (is.na(AR_2_CI_lower) || is.na(AR_2_CI_upper)) {
-          cat("Bias-Aware AR           NA (collinearity issue)\n")
-        } else {
-          cat("Bias-Aware AR           [",
-              fmt_align(AR_2_CI_lower, DECIMAL_PLACES, WIDTH), ",",
-              fmt_align(AR_2_CI_upper, DECIMAL_PLACES, WIDTH), "]\n")
-        }
+        cat("Bias-Aware AR        ",
+            fmt_ar_ci(AR2_CI_lower, AR2_CI_upper, AR2_CI_type),
+            "\n")
         cat("=============================================", "\n") 
       }
 
