@@ -2,7 +2,7 @@ LAMBDA-CLASS FRD ESTIMATOR - QUICK REFERENCE FOR R
 ==================================================
 
 BASIC CALL:
-  result <- lambda_class(Y, D, X, x0, bandwidth, psi = 4, tau0 = 0)
+  result <- lambdaFRD(Y, D, X, x0, bandwidth, psi = 4, tau0 = 0)
 
 PARAMETERS:
   Y         : Outcome (required)
@@ -48,15 +48,16 @@ RECOMMENDED SETTINGS:
 
 EXAMPLE:
   result <- lambda_class(
-              Y = outcomes, 
-              D = treatment, 
-              X = score, 
-              x0 = 10, 
-              bandwidth = 5, 
-              psi = 4,
-              tau_0 = 0,
-              robust = TRUE,
-              alpha = 0.05
-            )
+    Y = outcomes, 
+    D = treatment, 
+    X = score, 
+    x0 = 10, 
+    bandwidth = 5, 
+    psi = 4,
+    tau_0 = 0,
+    robust = TRUE,
+    alpha = 0.05
+  )
+  
   sprintf("Effect: %.2f [%.2f, %.2f]", 
           result$tau_est, result$ci_lower, result$ci_upper)
